@@ -29,22 +29,25 @@ if [ -n "$TS_AUTHKEY" ]; then
         echo "WARNING: tailscale up failed, continuing without the phone link"
     fi
 
-    # 3. Bridge local port 5555 to phone Tailscale IP
+    # 3. Bridge a local port to the phone's Tailscale IP.
+    # Not 5555: adb scans localhost 5555-5585 for emulators and would list the phone twice
+    # (127.0.0.1:5555 + emulator-5554), so two tasks could grab the same phone.
     PHONE_IP="${PHONE_TS_IP:-100.116.147.90}"
-    echo "Forwarding 127.0.0.1:5555 -> $PHONE_IP:5555 via Tailscale..."
-    socat TCP-LISTEN:5555,fork,reuseaddr EXEC:"tailscale nc $PHONE_IP 5555" &
+    LOCAL_ADB="127.0.0.1:${LOCAL_ADB_PORT:-6555}"
+    echo "Forwarding $LOCAL_ADB -> $PHONE_IP:5555 via Tailscale..."
+    socat TCP-LISTEN:"${LOCAL_ADB##*:}",bind=127.0.0.1,fork,reuseaddr EXEC:"tailscale nc $PHONE_IP 5555" &
     sleep 2
 
     # 4. Connect ADB, then keep reconnecting: the phone may be offline at boot or drop later
     echo "Connecting ADB..."
-    adb connect 127.0.0.1:5555 || true
+    adb connect "$LOCAL_ADB" || true
     adb devices || true
     (
         while true; do
             sleep 30
-            if ! adb devices | grep -q "^127.0.0.1:5555[[:space:]]*device"; then
-                adb disconnect 127.0.0.1:5555 >/dev/null 2>&1 || true
-                adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true
+            if ! adb devices | grep -q "^$LOCAL_ADB[[:space:]]*device"; then
+                adb disconnect "$LOCAL_ADB" >/dev/null 2>&1 || true
+                adb connect "$LOCAL_ADB" >/dev/null 2>&1 || true
             fi
         done
     ) &
