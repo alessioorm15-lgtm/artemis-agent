@@ -310,7 +310,7 @@ class AdbDeviceProbe(BaseProbe):
     async def _get_device_states(
         self,
         adb_path: str,
-        timeout_seconds: float = 1.0,
+        timeout_seconds: float = 5.0,
     ) -> list[tuple[str, str]] | None:
         """Return only ADB serial/state pairs for the submission fast path.
 
@@ -420,7 +420,7 @@ class AdbDeviceProbe(BaseProbe):
         is_locked = await self._get_confirmed_device_lock_state(
             adb_path,
             serial,
-            timeout_seconds=1.0,
+            timeout_seconds=5.0,
         )
 
         # If preferred device is locked or unknown, check remaining ready devices for an unlocked one
@@ -431,7 +431,7 @@ class AdbDeviceProbe(BaseProbe):
                 candidate_locked = await self._get_confirmed_device_lock_state(
                     adb_path,
                     candidate,
-                    timeout_seconds=1.0,
+                    timeout_seconds=5.0,
                 )
                 if candidate_locked is False:
                     logger.info(
