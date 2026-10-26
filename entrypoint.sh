@@ -51,6 +51,9 @@ if [ -n "$TS_AUTHKEY" ]; then
             fi
         done
     ) &
+
+    # 4b. Port 5555 closes on every phone reboot: reopen it via wireless debugging, no PC needed
+    python -m apps.admin_console.routers.phone &
 fi
 
 # 5. Keep the free Render instance awake on its own (backup for the external cron):
