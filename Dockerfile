@@ -3,10 +3,10 @@ FROM python:3.12-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    adb \
     curl \
     git \
     socat \
+    unzip \
     ca-certificates \
     libgl1 \
     libglib2.0-0 \
@@ -15,6 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxi6 \
     && rm -rf /var/lib/apt/lists/*
+
+# Google platform-tools instead of Debian's adb 29: wireless debugging needs `adb pair` + TLS (adb >= 30)
+ENV PLATFORM_TOOLS_VERSION=35.0.2
+RUN curl -fsSL -o /tmp/pt.zip https://dl.google.com/android/repository/platform-tools_r${PLATFORM_TOOLS_VERSION}-linux.zip \
+    && unzip -q /tmp/pt.zip -d /opt \
+    && ln -s /opt/platform-tools/adb /usr/local/bin/adb \
+    && rm /tmp/pt.zip
+ENV ARTEMIS_ADB_PATH=/opt/platform-tools/adb
 
 # Install Tailscale
 ENV TAILSCALE_VERSION=1.76.6
