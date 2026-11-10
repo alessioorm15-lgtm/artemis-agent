@@ -1005,9 +1005,10 @@ class AgentGlobalConfig(BaseModel):
         if out_env is not None:
             data.setdefault("outputter", {})["enabled"] = out_env
 
-        vid_rec_env = _parse_bool("ARTEMIS_VIDEO_RECORDING_ENABLED") or _parse_bool(
-            "ARTEMIS_WITH_VIDEO_RECORDING_TOOLS"
-        )
+        # First variable that is set wins; `a or b` would turn an explicit False into None
+        vid_rec_env = _parse_bool("ARTEMIS_VIDEO_RECORDING_ENABLED")
+        if vid_rec_env is None:
+            vid_rec_env = _parse_bool("ARTEMIS_WITH_VIDEO_RECORDING_TOOLS")
         if vid_rec_env is not None:
             data.setdefault("video_analyzer", {})["enabled"] = vid_rec_env
             data.setdefault("pro", {}).setdefault("video_analyzer", {})["enabled"] = vid_rec_env
