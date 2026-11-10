@@ -201,6 +201,35 @@ async def link_phone(req: PhoneLinkRequest):
         return result
 
 
+class ScreenTimeoutRequest(BaseModel):
+    """Screen-off timeout to set; omit it to restore the value saved by the previous call."""
+
+    timeout_ms: int | None = Field(default=None, ge=10_000, le=3_600_000)
+
+
+_SAVED_TIMEOUT = "/tmp/phone_screen_off_timeout"
+
+
+@router.post("/api/phone/screen")
+async def screen_timeout(req: ScreenTimeoutRequest):
+    """Keep the screen on long enough for a task to start (works while locked), then restore it."""
+    current = await _adb("-s", MAIN_SERIAL, "shell", "settings", "get", "system", "screen_off_timeout")
+    if req.timeout_ms is None:
+        if not os.path.exists(_SAVED_TIMEOUT):
+            return {"ok": False, "current": current, "detail": "nothing saved to restore"}
+        with open(_SAVED_TIMEOUT) as f:
+            value = f.read().strip()
+        os.remove(_SAVED_TIMEOUT)
+    else:
+        if not os.path.exists(_SAVED_TIMEOUT) and current.isdigit():
+            with open(_SAVED_TIMEOUT, "w") as f:
+                f.write(current)
+        value = str(req.timeout_ms)
+    await _adb("-s", MAIN_SERIAL, "shell", "settings", "put", "system", "screen_off_timeout", value)
+    now = await _adb("-s", MAIN_SERIAL, "shell", "settings", "get", "system", "screen_off_timeout")
+    return {"ok": now == value, "previous": current, "current": now}
+
+
 _PAGE = """<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Collega telefono</title>
 <style>body{font-family:system-ui,sans-serif;max-width:420px;margin:24px auto;padding:0 16px}
