@@ -108,16 +108,22 @@ async def _probe(port: int, timeout: float = 4) -> bool | None:
         writer.close()
 
 
-async def find_open_ports(concurrency: int = 500) -> list[int]:
-    """Scan the ephemeral range where adbd puts the wireless-debugging port (~2 min)."""
-    sem = asyncio.Semaphore(concurrency)
+async def find_open_ports(concurrency: int = 200) -> list[int]:
+    """Scan the ephemeral range where adbd puts the wireless-debugging port (~2-3 min).
 
-    async def one(port: int) -> int | None:
-        async with sem:
-            return port if await _probe(port, timeout=2) else None
+    A fixed pool of workers pulls ports from one iterator, so only `concurrency` probes exist at
+    a time: gathering one task per port (~28k) got the 512 MB container OOM-killed.
+    """
+    ports = iter(EPHEMERAL_PORTS)
+    found: list[int] = []
 
-    found = await asyncio.gather(*(one(p) for p in EPHEMERAL_PORTS))
-    return [p for p in found if p]
+    async def worker() -> None:
+        for port in ports:
+            if await _probe(port, timeout=2):
+                found.append(port)
+
+    await asyncio.gather(*(worker() for _ in range(concurrency)))
+    return sorted(found)
 
 
 async def reopen_5555(
